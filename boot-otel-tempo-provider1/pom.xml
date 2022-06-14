@@ -99,7 +99,7 @@
 			    <configuration>
 			        <images>
 			            <image>	
-			            	<name>mnadeem/${project.artifactId}:${project.version}</name>		
+			            	<name>cto/${project.artifactId}:${project.version}</name>		
 			                <build>
 			                    <dockerFile>${project.basedir}/Dockerfile</dockerFile>
 			                </build>

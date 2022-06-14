@@ -1,0 +1,122 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: bootot
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: api1
+  namespace: bootot
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: provider1
+  namespace: bootot
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: provider1-svc
+  namespace: bootot
+spec:
+  ports:
+  - name: grpc
+    port: 8090
+    targetPort: 8090
+  - name: prom
+    port: 8801
+    targetPort: 8801
+  selector:
+    app: provider1-svc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api1-svc
+  namespace: bootot
+spec:
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+  selector:
+    app: api1-svc
+  type: LoadBalancer
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/name: api1
+    app.kubernetes.io/part-of: bootot
+    app.kubernetes.io/version: v11
+  name: api1
+  namespace: bootot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api1-svc
+      version: v11
+  template:
+    metadata:
+      labels:
+        app: api1-svc
+        version: v11
+    spec:
+      containers:
+      - env:
+        - name: PROVIDER1_URL_BASE
+          value: "http://provider1-svc.bootot:8090"
+        image: 020644639648.dkr.ecr.eu-west-1.amazonaws.com/cto/boot-otel-tempo-api:latest
+        name: api1-svc
+        ports:
+        - containerPort: 8080
+          name: grpc
+        - containerPort: 8801
+          name: prom
+        resources:
+          requests:
+            cpu: 100m
+      serviceAccountName: api1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/name: provider1
+    app.kubernetes.io/part-of: bootot
+    app.kubernetes.io/version: v11
+  name: provider1
+  namespace: bootot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: provider1-svc
+      version: v11
+  template:
+    metadata:
+      labels:
+        app: provider1-svc
+        version: v11
+    spec:
+      containers:
+      - env:
+        - name: PROVIDER1_DB_URL
+          value: jdbc:postgresql://bootot-psql-postgresql.bootot.svc.cluster.local:5432/provider1
+        - name: PROVIDER1_DB_USER
+          value: postgres
+        - name: PROVIDER1_DB_PASS
+          value: postgrespassword
+        image: 020644639648.dkr.ecr.eu-west-1.amazonaws.com/cto/boot-otel-tempo-provider1:latest
+        name: provider1-svc
+        ports:
+        - containerPort: 8090
+          name: http
+        resources:
+          requests:
+            cpu: 10m
+      serviceAccountName: provider1
